@@ -12,4 +12,4 @@ Drop fundamentals.md, market_research.md, news.md, sentiment.md into data-source
 Set OPENAI_API_KEY and run the pipeline (python main3.py).
 Edit files — the ambient system detects changes, runs the debate, and emits final_summary_*.txt + debate_results.jsonlines
 
-# main1.py does not use pathway, while main2.py uses time check for ambient orchestration which does not fully utilize powers of pathway. 
+**main1.py** does not use pathway, while **main2.py** uses time check for ambient orchestration which does not fully utilize powers of pathway. 
