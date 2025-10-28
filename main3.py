@@ -52,7 +52,63 @@ Key points to focus on:
 
 Use this information to deliver a compelling bull argument, refute the bear's concerns, and engage in a dynamic debate that demonstrates the strengths of the bull position. You must also address reflections and learn from lessons and mistakes you made in the past."""
 
-SUMMARIZER_SYSTEM_PROMPT = """You are a summarizer AI. After reading the debate between Bull and Bear agents, summarize the discussion objectively and conclude with a clear recommendation: BUY, HOLD, or SELL."""
+BEAR_SUMMARIZER_PROMPT = """You are an expert financial analyst tasked with creating a comprehensive Bear Case Summary Report. Your role is to synthesize and validate all bearish arguments presented during the debate.
+
+Your report should include:
+
+1. *Executive Summary of Bear Position*
+   - Concise overview of the primary bearish thesis
+   - Key risk factors identified
+
+2. *Detailed Risk Analysis*
+   - Market and competitive risks
+   - Financial vulnerabilities
+   - Operational challenges
+   - Regulatory or macroeconomic threats
+   
+3. *Validation of Bear Arguments*
+   - Which bearish points were most compelling and why
+   - Evidence and data supporting the bear case
+   - Logical consistency of the arguments
+   
+4. *Counterpoint Assessment*
+   - How well did bear arguments address bull counterpoints
+   - Remaining weaknesses in the bear position
+   
+5. *Key Takeaways*
+   - Most significant concerns for investors
+   - Critical factors to monitor
+
+Do NOT provide any investment recommendation (BUY/SELL/HOLD). Focus purely on analyzing and documenting the bear case."""
+
+BULL_SUMMARIZER_PROMPT = """You are an expert financial analyst tasked with creating a comprehensive Bull Case Summary Report. Your role is to synthesize and validate all bullish arguments presented during the debate.
+
+Your report should include:
+
+1. *Executive Summary of Bull Position*
+   - Concise overview of the primary bullish thesis
+   - Key growth drivers identified
+
+2. *Detailed Growth Analysis*
+   - Market opportunities and competitive advantages
+   - Financial strengths and momentum
+   - Operational excellence and innovation
+   - Favorable market trends and catalysts
+   
+3. *Validation of Bull Arguments*
+   - Which bullish points were most compelling and why
+   - Evidence and data supporting the bull case
+   - Logical consistency of the arguments
+   
+4. *Counterpoint Assessment*
+   - How well did bull arguments address bear counterpoints
+   - Remaining weaknesses in the bull position
+   
+5. *Key Takeaways*
+   - Most significant opportunities for investors
+   - Critical success factors to monitor
+
+Do NOT provide any investment recommendation (BUY/SELL/HOLD). Focus purely on analyzing and documenting the bull case."""
 
 # ----------------------------
 # PATHWAY UDF FOR LLM CALLS
@@ -123,20 +179,27 @@ Your turn to argue as the Bear Analyst."""}
 # PATHWAY TRANSFORMATION FUNCTIONS
 # ----------------------------
 @pw.udf
-def extract_filename(path: str) -> str:
-    """Extract filename from path"""
-    return Path(path).name if path else "unknown"
-
-@pw.udf
 def compute_hash(data: str) -> str:
     """Compute hash of file content to detect actual changes"""
     import hashlib
     return hashlib.md5(data.encode()).hexdigest() if data else ""
 
 @pw.udf
-def has_four_files(files_tuple) -> bool:
-    """Check if we have exactly 4 files"""
-    return len(files_tuple) == 4 if files_tuple else False
+def has_four_files(filenames_tuple) -> bool:
+    """Check if we have all 4 required files"""
+    required = {"fundamentals_report.md", "market_report.md", "news_report.md", "sentiment_report.md"}
+    return required.issubset(set(filenames_tuple)) if filenames_tuple else False
+
+@pw.udf
+def get_file_by_name(filenames_tuple, data_tuple, target_filename: str) -> str:
+    """Extract specific file content by filename"""
+    if not filenames_tuple or not data_tuple:
+        return ""
+    try:
+        file_dict = dict(zip(filenames_tuple, data_tuple))
+        return file_dict.get(target_filename, "")
+    except:
+        return ""
 
 @pw.udf
 def process_debate_data(fundamentals: str, market: str, news: str, sentiment: str) -> str:
@@ -169,64 +232,110 @@ def process_debate_data(fundamentals: str, market: str, news: str, sentiment: st
             history.append({"round": round_num, "bull": bull_reply, "bear": bear_reply})
             bear_message = bear_reply
         
-        # Generate summary
-        print("\n📊 Generating final summary...")
+        print("\n✅ Debate rounds completed!")
+        
+        # Create debate transcript
+        print("📝 Creating debate transcript...")
         debate_text = "\n\n".join([
             f"Round {item['round']}:\nBull: {item['bull']}\nBear: {item['bear']}" 
             for item in history
         ])
+        print(f"✅ Transcript created ({len(debate_text)} characters)")
         
-        summary_prompt = [
-            {"role": "system", "content": SUMMARIZER_SYSTEM_PROMPT},
-            {"role": "user", "content": f"""You are an objective financial analyst. Review the following debate between Bull and Bear analysts and provide a comprehensive summary with a clear recommendation.
-
-    Available Research:
-    Market Research Report: {market[:200]}...
-    Social Media Sentiment Report: {sentiment[:200]}...
-    World Affairs News: {news[:200]}...
-    Company Fundamentals Report: {fundamentals[:200]}...
-
-    Debate Transcript:
-    {debate_text}
-
-    Provide:
-    1. A balanced summary of key arguments from both sides
-    2. An assessment of the strongest points made
-    3. A clear final recommendation: BUY, HOLD, or SELL
-    4. Reasoning for your recommendation based on the debate and available data
-
-    Be objective and consider both perspectives before concluding."""}
-            ]
-            
-            summary_table = pw.debug.table_from_pandas(pd.DataFrame({"messages": [summary_prompt]}))
-            summary_response = summary_table.select(summary=chat_model(pw.this.messages))
-            summary_result = pw.debug.table_to_pandas(summary_response)
-            summary = summary_result["summary"].iloc[0] if not summary_result.empty else "Summary completed"
-            
-            # Save to file
-            clean_timestamp = timestamp.replace(':', '-').replace(' ', '_')
-            output_path = Path(OUTPUT_FOLDER) / f"final_summary_{clean_timestamp}.txt"
-            full_report = f"""Stock Analysis Debate Summary
-    Generated: {timestamp}
-
-    {'='*60}
-    FINAL SUMMARY AND RECOMMENDATION
-    {'='*60}
-
-    {summary}
-
-    {'='*60}
-    DEBATE TRANSCRIPT
-    {'='*60}
-
-    {debate_text}
-    """
-        output_path.write_text(full_report)
+        # Generate bear summary
+        print("\n📊 Generating bear case summary...")
         
-        print(f"\n✅ Report saved: {output_path.name}")
+        bear_summary_prompt = [
+            {"role": "system", "content": BEAR_SUMMARIZER_PROMPT},
+            {"role": "user", "content": f"""Review the following debate and create a comprehensive Bear Case Summary Report.
+
+Available Research:
+Market Research Report: {market[:300]}...
+Social Media Sentiment Report: {sentiment[:300]}...
+World Affairs News: {news[:300]}...
+Company Fundamentals Report: {fundamentals[:300]}...
+
+Debate Transcript:
+{debate_text}
+
+Create a detailed bear case summary following the structured format provided in your instructions."""}
+        ]
+        
+        bear_summary_table = pw.debug.table_from_pandas(pd.DataFrame({"messages": [bear_summary_prompt]}))
+        bear_summary_response = bear_summary_table.select(summary=chat_model(pw.this.messages))
+        bear_summary_result = pw.debug.table_to_pandas(bear_summary_response)
+        bear_summary = bear_summary_result["summary"].iloc[0] if not bear_summary_result.empty else "Bear summary completed"
+        print(f"✅ Bear summary generated ({len(bear_summary)} characters)")
+        
+        print("\n📊 Generating bull case summary...")
+        
+        bull_summary_prompt = [
+            {"role": "system", "content": BULL_SUMMARIZER_PROMPT},
+            {"role": "user", "content": f"""Review the following debate and create a comprehensive Bull Case Summary Report.
+
+Available Research:
+Market Research Report: {market[:300]}...
+Social Media Sentiment Report: {sentiment[:300]}...
+World Affairs News: {news[:300]}...
+Company Fundamentals Report: {fundamentals[:300]}...
+
+Debate Transcript:
+{debate_text}
+
+Create a detailed bull case summary following the structured format provided in your instructions."""}
+        ]
+        
+        bull_summary_table = pw.debug.table_from_pandas(pd.DataFrame({"messages": [bull_summary_prompt]}))
+        bull_summary_response = bull_summary_table.select(summary=chat_model(pw.this.messages))
+        bull_summary_result = pw.debug.table_to_pandas(bull_summary_response)
+        bull_summary = bull_summary_result["summary"].iloc[0] if not bull_summary_result.empty else "Bull summary completed"
+        print(f"✅ Bull summary generated ({len(bull_summary)} characters)")
+        
+        # Save separate files
+        clean_timestamp = timestamp.replace(':', '-').replace(' ', '_')
+        
+        print(f"\n💾 Saving files with timestamp: {clean_timestamp}")
+        
+        # Save debate transcript
+        debate_path = Path(OUTPUT_FOLDER) / f"debate.md"
+        debate_content = f"""# Stock Analysis Debate Transcript
+*Generated:* {timestamp}
+
+---
+
+{debate_text}
+"""
+        debate_path.write_text(debate_content)
+        print(f"✅ Debate saved: {debate_path.absolute()}")
+        
+        # Save bear report
+        bear_path = Path(OUTPUT_FOLDER) / f"bear_report.md"
+        bear_content = f"""# Bear Case Summary Report
+*Generated:* {timestamp}
+
+---
+
+{bear_summary}
+"""
+        bear_path.write_text(bear_content)
+        print(f"✅ Bear report saved: {bear_path.absolute()}")
+        
+        # Save bull report
+        bull_path = Path(OUTPUT_FOLDER) / f"bull_report.md"
+        bull_content = f"""# Bull Case Summary Report
+*Generated:* {timestamp}
+
+---
+
+{bull_summary}
+"""
+        bull_path.write_text(bull_content)
+        print(f"✅ Bull report saved: {bull_path.absolute()}")
+        
+        print(f"\n🎉 All 3 files generated successfully!")
         print(f"{'='*80}\n")
         
-        return summary
+        return f"Reports generated: {debate_path.name}, {bear_path.name}, {bull_path.name}"
         
     except Exception as e:
         error_msg = f"ERROR: {str(e)}"
@@ -238,68 +347,103 @@ def process_debate_data(fundamentals: str, market: str, news: str, sentiment: st
 # ----------------------------
 # MAIN PATHWAY PIPELINE
 # ----------------------------
-if __name__ == "__main__":
+if _name_ == "_main_":
     print("="*80)
-    print("🚀 PATHWAY STOCK DEBATE SYSTEM - FULL INTEGRATION")
+    print("🚀 PATHWAY STOCK DEBATE SYSTEM - FILENAME-BASED")
     print("="*80)
     
     # Check for required files
-    txt_files = sorted(Path(DATA_FOLDER).glob("*.md"))
-    if len(txt_files) < 4:
+    required_files = ["fundamentals_report.md", "market_report.md", "news_report.md", "sentiment_report.md"]
+    txt_files = [Path(DATA_FOLDER) / f for f in required_files]
+    missing = [f.name for f in txt_files if not f.exists()]
+    
+    if missing:
         raise ValueError(
-            f"Expected at least 4 markdown files in '{DATA_FOLDER}' folder. "
-            f"Found {len(txt_files)}. Please ensure you have:\n"
-            "1. fundamentals.md\n"
-            "2. market_research.md\n"
-            "3. news.md\n"
-            "4. sentiment.md"
+            f"Missing required files in '{DATA_FOLDER}' folder: {', '.join(missing)}\n"
+            f"Please ensure you have:\n"
+            "1. fundamentals_report.md\n"
+            "2. market_report.md\n"
+            "3. news_report.md\n"
+            "4. sentiment_report.md"
         )
     
-    print(f"📁 Found {len(txt_files)} report files")
+    print(f"📁 Found all required report files")
     print(f"📊 Setting up Pathway streaming pipeline")
     print("="*80)
     
-    # PATHWAY STREAMING INPUT - Read files with streaming mode
-    files = pw.io.fs.read(
-        path=f"{DATA_FOLDER}/*.md",
-        format="plaintext_by_file",
+    # PATHWAY STREAMING INPUT - Read each file separately and tag with filename
+    fundamentals_stream = pw.io.fs.read(
+        path=f"{DATA_FOLDER}/fundamentals_report.md",
+        format="plaintext",
         mode="streaming",
-        autocommit_duration_ms=3000,  # Check every 3 seconds
-        with_metadata=True
-    )
-    
-    # PATHWAY TRANSFORMATION - Add content hash for change detection
-    files = files.select(
-        pw.this.data,
+        autocommit_duration_ms=3000
+    ).select(
+        data=pw.this.data,
+        filename=pw.apply(lambda x: "fundamentals_report.md", pw.this.data),
         content_hash=compute_hash(pw.this.data)
     )
     
+    market_stream = pw.io.fs.read(
+        path=f"{DATA_FOLDER}/market_report.md",
+        format="plaintext",
+        mode="streaming",
+        autocommit_duration_ms=3000
+    ).select(
+        data=pw.this.data,
+        filename=pw.apply(lambda x: "market_report.md", pw.this.data),
+        content_hash=compute_hash(pw.this.data)
+    )
+    
+    news_stream = pw.io.fs.read(
+        path=f"{DATA_FOLDER}/news_report.md",
+        format="plaintext",
+        mode="streaming",
+        autocommit_duration_ms=3000
+    ).select(
+        data=pw.this.data,
+        filename=pw.apply(lambda x: "news_report.md", pw.this.data),
+        content_hash=compute_hash(pw.this.data)
+    )
+    
+    sentiment_stream = pw.io.fs.read(
+        path=f"{DATA_FOLDER}/sentiment_report.md",
+        format="plaintext",
+        mode="streaming",
+        autocommit_duration_ms=3000
+    ).select(
+        data=pw.this.data,
+        filename=pw.apply(lambda x: "sentiment_report.md", pw.this.data),
+        content_hash=compute_hash(pw.this.data)
+    )
+    
+    # Concatenate all streams
+    files = pw.Table.concat_reindex(fundamentals_stream, market_stream, news_stream, sentiment_stream)
+    
     # PATHWAY GROUPBY - Group all files together by a constant key
-    # This ensures we process all 4 files together, not individually
     files_with_key = files.select(
         pw.this.data,
+        pw.this.filename,
         pw.this.content_hash,
         group_key=pw.apply(lambda x: "all_files", pw.this.data)
     )
     
-    # PATHWAY REDUCE - Collect all file data together
-    # Using reducers to aggregate the files
+    # PATHWAY REDUCE - Collect all file data together with filenames
     grouped = files_with_key.groupby(pw.this.group_key).reduce(
         pw.this.group_key,
+        filenames=pw.reducers.tuple(pw.this.filename),
         files_data=pw.reducers.tuple(pw.this.data),
         hashes=pw.reducers.tuple(pw.this.content_hash)
     )
     
-    # PATHWAY FILTER - Only process when we have exactly 4 files
-    grouped = grouped.filter(has_four_files(pw.this.files_data))
+    # PATHWAY FILTER - Only process when we have all 4 required files
+    grouped = grouped.filter(has_four_files(pw.this.filenames))
     
-    # PATHWAY SELECT - Extract individual reports and run debate
-    # Map the files to their expected order: fundamentals, market, news, sentiment
+    # PATHWAY SELECT - Extract individual reports by filename
     results = grouped.select(
-        fundamentals=pw.apply(lambda files: files[0] if len(files) > 0 else "", pw.this.files_data),
-        market=pw.apply(lambda files: files[1] if len(files) > 1 else "", pw.this.files_data),
-        news=pw.apply(lambda files: files[2] if len(files) > 2 else "", pw.this.files_data),
-        sentiment=pw.apply(lambda files: files[3] if len(files) > 3 else "", pw.this.files_data),
+        fundamentals=get_file_by_name(pw.this.filenames, pw.this.files_data, "fundamentals_report.md"),
+        market=get_file_by_name(pw.this.filenames, pw.this.files_data, "market_report.md"),
+        news=get_file_by_name(pw.this.filenames, pw.this.files_data, "news_report.md"),
+        sentiment=get_file_by_name(pw.this.filenames, pw.this.files_data, "sentiment_report.md"),
         combined_hash=pw.apply(lambda h: "-".join(sorted(h)), pw.this.hashes)
     )
     
@@ -316,11 +460,12 @@ if __name__ == "__main__":
     )
     
     # PATHWAY OUTPUT - Write results using deduplicate to prevent re-runs on same content
-    deduplicated = debate_results.deduplicate(
-    value=pw.this.combined_hash,
-    acceptor=lambda new, old: (old is None) or (new != old),
-    name="debate_results_dedup"
-)
+    # Group by hash and keep only the first occurrence
+    deduplicated = debate_results.groupby(pw.this.combined_hash).reduce(
+        pw.this.combined_hash,
+        summary=pw.reducers.argmin(pw.this.timestamp, pw.this.summary),
+        timestamp=pw.reducers.min(pw.this.timestamp)
+    )
     
     pw.io.jsonlines.write(
         deduplicated,
@@ -328,14 +473,16 @@ if __name__ == "__main__":
     )
     
     print("\n💡 Pathway pipeline configured:")
-    print("  ├─ Input: Streaming file reader (3s polling)")
+    print("  ├─ Input: 4 separate file streams (filename-tagged)")
     print("  ├─ Transform: Content hashing for change detection")
-    print("  ├─ Group: Aggregate all 4 files together")
+    print("  ├─ Concat: Merge all streams with reindexing")
+    print("  ├─ Group: Aggregate files by constant key")
     print("  ├─ Filter: Only process when all 4 files present")
+    print("  ├─ Extract: Get files by explicit name matching")
     print("  ├─ Process: Run debate via UDF")
     print("  ├─ Deduplicate: Skip if content unchanged")
     print("  └─ Output: Write results to JSONL")
-    print("\n🔄 Edit any .md file to trigger debate")
+    print("\n🔄 Edit any required .md file to trigger debate")
     print("🛑 Press Ctrl+C to stop\n")
     
     # RUN PATHWAY
