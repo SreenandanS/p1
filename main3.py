@@ -180,47 +180,47 @@ def process_debate_data(fundamentals: str, market: str, news: str, sentiment: st
             {"role": "system", "content": SUMMARIZER_SYSTEM_PROMPT},
             {"role": "user", "content": f"""You are an objective financial analyst. Review the following debate between Bull and Bear analysts and provide a comprehensive summary with a clear recommendation.
 
-Available Research:
-Market Research Report: {market[:200]}...
-Social Media Sentiment Report: {sentiment[:200]}...
-World Affairs News: {news[:200]}...
-Company Fundamentals Report: {fundamentals[:200]}...
+    Available Research:
+    Market Research Report: {market[:200]}...
+    Social Media Sentiment Report: {sentiment[:200]}...
+    World Affairs News: {news[:200]}...
+    Company Fundamentals Report: {fundamentals[:200]}...
 
-Debate Transcript:
-{debate_text}
+    Debate Transcript:
+    {debate_text}
 
-Provide:
-1. A balanced summary of key arguments from both sides
-2. An assessment of the strongest points made
-3. A clear final recommendation: BUY, HOLD, or SELL
-4. Reasoning for your recommendation based on the debate and available data
+    Provide:
+    1. A balanced summary of key arguments from both sides
+    2. An assessment of the strongest points made
+    3. A clear final recommendation: BUY, HOLD, or SELL
+    4. Reasoning for your recommendation based on the debate and available data
 
-Be objective and consider both perspectives before concluding."""}
-        ]
-        
-        summary_table = pw.debug.table_from_pandas(pd.DataFrame({"messages": [summary_prompt]}))
-        summary_response = summary_table.select(summary=chat_model(pw.this.messages))
-        summary_result = pw.debug.table_to_pandas(summary_response)
-        summary = summary_result["summary"].iloc[0] if not summary_result.empty else "Summary completed"
-        
-        # Save to file
-        clean_timestamp = timestamp.replace(':', '-').replace(' ', '_')
-        output_path = Path(OUTPUT_FOLDER) / f"final_summary_{clean_timestamp}.txt"
-        full_report = f"""Stock Analysis Debate Summary
-Generated: {timestamp}
+    Be objective and consider both perspectives before concluding."""}
+            ]
+            
+            summary_table = pw.debug.table_from_pandas(pd.DataFrame({"messages": [summary_prompt]}))
+            summary_response = summary_table.select(summary=chat_model(pw.this.messages))
+            summary_result = pw.debug.table_to_pandas(summary_response)
+            summary = summary_result["summary"].iloc[0] if not summary_result.empty else "Summary completed"
+            
+            # Save to file
+            clean_timestamp = timestamp.replace(':', '-').replace(' ', '_')
+            output_path = Path(OUTPUT_FOLDER) / f"final_summary_{clean_timestamp}.txt"
+            full_report = f"""Stock Analysis Debate Summary
+    Generated: {timestamp}
 
-{'='*60}
-FINAL SUMMARY AND RECOMMENDATION
-{'='*60}
+    {'='*60}
+    FINAL SUMMARY AND RECOMMENDATION
+    {'='*60}
 
-{summary}
+    {summary}
 
-{'='*60}
-DEBATE TRANSCRIPT
-{'='*60}
+    {'='*60}
+    DEBATE TRANSCRIPT
+    {'='*60}
 
-{debate_text}
-"""
+    {debate_text}
+    """
         output_path.write_text(full_report)
         
         print(f"\n✅ Report saved: {output_path.name}")
