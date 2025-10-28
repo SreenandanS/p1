@@ -1,4 +1,4 @@
 pathway[xpack-llm-docs]
-pdf2img
+pdf2image
 unstructured
 python-dotenv
