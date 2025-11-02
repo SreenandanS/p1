@@ -1,0 +1,17 @@
+version: "3.8"
+
+services:
+  risk_manager:
+    build: .
+    container_name: p1_risk_manager
+    env_file:
+      - .env
+    volumes:
+      # Mount the data-source as read-only so container reads host research files
+      - ./data-source:/app/data-source:ro
+      # Persist generated reports back to host
+      - ./final_reports:/app/final_reports
+      # Make .env available inside container (read-only)
+      - ./.env:/app/.env:ro
+    command: ["python", "risk_manager.py"]
+    restart: "no"

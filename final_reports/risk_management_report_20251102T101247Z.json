@@ -1,0 +1,9 @@
+{
+  "overall_risk": "Medium",
+  "position_pct": 0.1,
+  "stop_loss_pct": 0.05,
+  "hedge_recommendation": "Consider using options to hedge against potential volatility.",
+  "rationale": "Apple's strong growth potential and brand loyalty are countered by geopolitical risks and high valuation concerns. The mixed sentiment and liquidity issues further suggest a cautious approach.",
+  "method": "llm",
+  "source": "llm"
+}

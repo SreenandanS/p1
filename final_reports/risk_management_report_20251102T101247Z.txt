@@ -1,0 +1,10 @@
+Risk Management Report
+Generated: 20251102T101247Z
+
+Source: llm
+Overall risk: Medium
+Recommended position (% of portfolio): 0.1
+Suggested stop-loss (%): 0.05
+
+Rationale:
+Apple's strong growth potential and brand loyalty are countered by geopolitical risks and high valuation concerns. The mixed sentiment and liquidity issues further suggest a cautious approach.
